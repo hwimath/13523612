@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>합이 큰 수</title>
+    <style>
+        /* 폰트 로드 */
+        @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
+
+        body {
+            font-family: 'Jua', sans-serif;
+            background-color: #f0f8ff;
+            margin: 0;
+            padding: 0;
+        }
+        #game-container {
+            max-width: 600px;
+            margin: 50px auto;
+            text-align: center;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        h1 {
+            color: #333;
+            font-size: 48px;
+            margin-bottom: 30px;
+        }
+        #difficulty-selection, #game-screen, #result-screen {
+            display: none;
+        }
+        .button {
+            padding: 15px 30px;
+            font-size: 24px;
+            margin: 10px;
+            cursor: pointer;
+            border: none;
+            border-radius: 50px;
+            background-color: #ff7f50;
+            color: white;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        .button:hover {
+            background-color: #ff6347;
+            transform: translateY(-3px);
+        }
+        #score, #chance, #total-time {
+            font-size: 20px;
+            margin: 10px 0;
+            color: #555;
+        }
+        #question {
+            font-size: 28px;
+            margin: 20px 0;
+            color: #333;
+        }
+        #options {
+            margin: 20px 0;
+        }
+        .option-button {
+            display: inline-block;
+            padding: 15px 30px;
+            font-size: 24px;
+            margin: 10px;
+            cursor: pointer;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            background-color: #f9f9f9;
+            color: #333;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        .option-button:hover {
+            background-color: #e0e0e0;
+            transform: translateY(-3px);
+        }
+        #energy-bar {
+            width: 100%;
+            background-color: #ddd;
+            margin: 20px 0;
+            height: 30px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+        }
+        #energy-fill {
+            width: 100%;
+            height: 100%;
+            background-color: #32cd32;
+            transition: width 0.1s linear;
+        }
+        #feedback {
+            font-size: 20px;
+            margin: 20px 0;
+            height: 24px;
+            color: #333;
+        }
+        #result-screen h2 {
+            font-size: 36px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        #result-screen p {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        /* 반응형 디자인 */
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 36px;
+            }
+            .button, .option-button {
+                font-size: 20px;
+                padding: 12px 24px;
+            }
+            #question {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <h1>합이 큰 수</h1>
+
+    <!-- 첫 화면: 이름 입력 및 난이도 선택 -->
+    <div id="difficulty-selection">
+        <p style="font-size: 24px; color: #333;">이름을 입력하세요:</p>
+        <input type="text" id="playerName" placeholder="이름 입력" style="padding:10px; font-size:20px; margin-bottom:20px;">
+        <p style="font-size: 24px; color: #333;">난이도를 선택하세요:</p>
+        <button class="button" onclick="startGame('상')">상</button>
+        <button class="button" onclick="startGame('중')">중</button>
+        <button class="button" onclick="startGame('하')">하</button>
+    </div>
+
+    <!-- 게임 화면 -->
+    <div id="game-screen">
+        <!-- 에너지 바 추가 -->
+        <div id="energy-bar">
+            <div id="energy-fill"></div>
+        </div>
+        <!-- 남은 시간 표시 -->
+        <div id="time">남은 시간: <span id="time-remaining"></span>초</div>
+        <div id="total-time">총 소요 시간: <span id="total-time-elapsed">0</span>초</div>
+        <div id="chance">남은 기회: <span id="remaining-chances">3</span>/3</div>
+        <div id="score">점수: <span id="current-score">0</span></div>
+        <div id="question"></div>
+        <div id="options"></div>
+        <div id="feedback"></div>
+        <!-- "다음 문제" 버튼을 넣을 컨테이너 -->
+        <div id="next-container"></div>
+    </div>
+
+    <!-- 결과 화면 -->
+    <div id="result-screen">
+        <h2>게임 종료!</h2>
+        <p>최종 점수: <span id="final-score"></span></p>
+        <p>총 소요 시간: <span id="final-time"></span>초</p>
+        <button class="button" onclick="restartGame()">다시 시작</button>
+        <button class="button" id="scoreSubmitButton" onclick="sendScore()">점수전송</button>
+        <pre id="response" style="text-align:left;"></pre>
+    </div>
+</div>
+
+<script>
+    // 문제 리스트 (원본 문제는 절대 생략하지 않음)
+    const problems = [
+        { optionA: "3+5", optionB: "5+6", correctOption: "5+6" },
+        { optionA: "7+2", optionB: "4+8", correctOption: "4+8" },
+        { optionA: "3+5", optionB: "5+6", correctOption: "5+6" },
+        { optionA: "7+2", optionB: "4+8", correctOption: "4+8" },
+        { optionA: "6+6", optionB: "5+5", correctOption: "6+6" },
+        { optionA: "2+9", optionB: "7+3", correctOption: "2+9" },
+        { optionA: "8+1", optionB: "6+4", correctOption: "6+4" },
+        { optionA: "3+6", optionB: "5+5", correctOption: "5+5" },
+        { optionA: "4+7", optionB: "8+2", correctOption: "4+7" },
+        { optionA: "5+5", optionB: "9+0", correctOption: "5+5" },
+        { optionA: "1+8", optionB: "6+4", correctOption: "6+4" },
+        { optionA: "7+1", optionB: "4+6", correctOption: "4+6" },
+        { optionA: "2+7", optionB: "5+6", correctOption: "5+6" },
+        { optionA: "3+9", optionB: "5+6", correctOption: "3+9" },
+        { optionA: "8+0", optionB: "4+5", correctOption: "4+5" },
+        { optionA: "2+8", optionB: "7+2", correctOption: "2+8" },
+        { optionA: "5+3", optionB: "6+4", correctOption: "6+4" },
+        { optionA: "6+2", optionB: "3+7", correctOption: "3+7" },
+        { optionA: "4+6", optionB: "8+1", correctOption: "4+6" },
+        { optionA: "2+5", optionB: "6+4", correctOption: "6+4" },
+        { optionA: "7+2", optionB: "5+6", correctOption: "5+6" },
+        { optionA: "1+8", optionB: "2+9", correctOption: "2+9" },
+        { optionA: "5+4", optionB: "7+3", correctOption: "7+3" },
+        { optionA: "6+2", optionB: "3+9", correctOption: "3+9" },
+        { optionA: "4+5", optionB: "8+0", correctOption: "4+5" },
+        { optionA: "2+6", optionB: "5+5", correctOption: "5+5" },
+        { optionA: "7+1", optionB: "4+6", correctOption: "4+6" },
+        { optionA: "3+5", optionB: "6+3", correctOption: "6+3" },
+        { optionA: "1+9", optionB: "5+4", correctOption: "1+9" },
+        { optionA: "2+8", optionB: "7+2", correctOption: "2+8" },
+        { optionA: "4+7", optionB: "5+5", correctOption: "4+7" },
+        { optionA: "6+2", optionB: "3+8", correctOption: "3+8" },
+        { optionA: "5+3", optionB: "4+6", correctOption: "4+6" },
+        { optionA: "2+9", optionB: "7+1", correctOption: "2+9" },
+        { optionA: "3+6", optionB: "5+5", correctOption: "5+5" },
+        { optionA: "2+7", optionB: "5+6", correctOption: "5+6" },
+        { optionA: "2+9", optionB: "6+6", correctOption: "6+6" },
+        { optionA: "5+5", optionB: "8+1", correctOption: "5+5" },
+        { optionA: "4+6", optionB: "7+2", correctOption: "4+6" },
+        { optionA: "2+8", optionB: "6+5", correctOption: "6+5" },
+        { optionA: "3+7", optionB: "6+5", correctOption: "6+5" },
+        { optionA: "1+9", optionB: "4+5", correctOption: "1+9" },
+        { optionA: "5+3", optionB: "7+2", correctOption: "7+2" },
+        { optionA: "2+6", optionB: "5+4", correctOption: "5+4" },
+        { optionA: "4+7", optionB: "7+5", correctOption: "7+5" },
+        { optionA: "3+8", optionB: "6+6", correctOption: "6+6" },
+        { optionA: "1+9", optionB: "7+2", correctOption: "1+9" },
+        { optionA: "3+8", optionB: "4+6", correctOption: "3+8" }
+    ];
+
+    // 난이도 설정
+    const difficultyLevels = {
+        "상": { time: 20, score: 20 },
+        "중": { time: 30, score: 15 },
+        "하": { time: 40, score: 10 }
+    };
+
+    let selectedDifficulty;
+    let timeLimit;
+    let scoreIncrement;
+    let score = 0;
+    let currentProblemIndex = 0;
+    let startTime; // 게임 시작 시간 (총 소요 시간 계산용)
+    let problemStartTime; // 각 문제의 시작 시간 (남은 시간 계산용)
+    let totalTimeElapsed = 0;
+    let remainingChances = 3;
+    let timerInterval;
+    let energyPercent = 100;
+    let playerName = '';
+
+    const difficultySelection = document.getElementById('difficulty-selection');
+    const gameScreen = document.getElementById('game-screen');
+    const resultScreen = document.getElementById('result-screen');
+    const currentScoreElement = document.getElementById('current-score');
+    const questionElement = document.getElementById('question');
+    const optionsElement = document.getElementById('options');
+    const feedbackElement = document.getElementById('feedback');
+    const finalScoreElement = document.getElementById('final-score');
+    const totalTimeElement = document.getElementById('total-time-elapsed');
+    const finalTimeElement = document.getElementById('final-time');
+    const remainingChancesElement = document.getElementById('remaining-chances');
+    const timeRemainingElement = document.getElementById('time-remaining');
+    const energyFill = document.getElementById('energy-fill');
+
+    function showScreen(screen) {
+        difficultySelection.style.display = 'none';
+        gameScreen.style.display = 'none';
+        resultScreen.style.display = 'none';
+        screen.style.display = 'block';
+    }
+
+    // 제공된 코드를 그대로 추가하여 데이터 전송 기능 구현
+    function saveData(game, name, score, elapsedTime) {
+        const FUNCTION_URL = "https://us-central1-record-f420d.cloudfunctions.net/report";
+
+        const requestData = {
+            game,
+            name,
+            score: parseInt(score, 10),
+            elapsedTime: parseInt(elapsedTime, 10)
+        };
+
+        try {
+            const response = fetch(FUNCTION_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            });
+
+            const responseData = response.json();
+
+            if (response.ok) {
+                document.getElementById('response').innerText = 
+                    `성공: ${JSON.stringify(responseData, null, 2)}`;
+            } else {
+                document.getElementById('response').innerText = 
+                    `오류: ${JSON.stringify(responseData, null, 2)}`;
+            }
+        } catch (error) {
+            console.error('요청 실패:', error);
+            document.getElementById('response').innerText = 
+                `네트워크 오류: ${error.message}`;
+        }
+    }
+
+    // 이름 입력을 확인한 후 게임 시작
+    function startGame(difficulty) {
+        playerName = document.getElementById('playerName').value.trim();
+        if (!playerName) {
+            alert('이름을 입력하세요.');
+            return;
+        }
+        selectedDifficulty = difficulty;
+        timeLimit = difficultyLevels[difficulty].time;
+        scoreIncrement = difficultyLevels[difficulty].score;
+        score = 0;
+        totalTimeElapsed = 0;
+        currentProblemIndex = 0;
+        remainingChances = 3;
+        energyPercent = 100;
+
+        problems.sort(() => Math.random() - 0.5); // 문제 섞기
+
+        remainingChancesElement.textContent = remainingChances;
+
+        showScreen(gameScreen);
+        updateScore();
+        startTime = Date.now(); // 게임 시작 시간 설정
+        nextProblem();
+        timerInterval = setInterval(updateTimer, 100);
+    }
+
+    function updateScore() {
+        currentScoreElement.textContent = score;
+    }
+
+    function updateTotalTime() {
+        totalTimeElapsed = Math.floor((Date.now() - startTime) / 1000);
+        totalTimeElement.textContent = totalTimeElapsed;
+    }
+
+    function updateTimer() {
+        const elapsedTime = (Date.now() - problemStartTime) / 1000; // 각 문제의 경과 시간
+        const remainingTime = timeLimit - elapsedTime;
+
+        if (remainingTime <= 0) {
+            timeRemainingElement.textContent = '0';
+            energyFill.style.width = '0%';
+            submitAnswer(null); // 시간 초과 시 자동으로 오답 처리
+        } else {
+            timeRemainingElement.textContent = Math.ceil(remainingTime);
+            energyPercent = (remainingTime / timeLimit) * 100;
+            energyFill.style.width = energyPercent + '%';
+            updateTotalTime();
+        }
+    }
+
+    function nextProblem() {
+        // "다음 문제" 버튼 숨기기
+        document.getElementById('next-container').innerHTML = '';
+
+        if (remainingChances <= 0) {
+            endGame();
+            return;
+        }
+
+        if (currentProblemIndex >= problems.length) {
+            endGame();
+            return;
+        }
+
+        timeLimit *= 0.99; // 시간 1% 감소
+        problemStartTime = Date.now(); // 각 문제의 시작 시간 설정
+
+        const currentProblem = problems[currentProblemIndex];
+        questionElement.textContent = "합이 더 큰 것을 고르세요.";
+        optionsElement.innerHTML = '';
+
+        const options = [currentProblem.optionA, currentProblem.optionB];
+        options.sort(() => Math.random() - 0.5); // 옵션 섞기
+
+        options.forEach((optionText) => {
+            const optionButton = document.createElement('button');
+            optionButton.className = 'option-button';
+            optionButton.textContent = optionText;
+            optionButton.onclick = () => submitAnswer(optionText);
+            optionsElement.appendChild(optionButton);
+        });
+
+        feedbackElement.textContent = '';
+    }
+
+    // 정답 또는 오답이 발생하면 옵션 버튼은 비활성화하고, "다음 문제" 버튼을 생성하여 사용자가 직접 다음 문제로 넘어가게 함.
+    function submitAnswer(selectedOption) {
+        // 옵션 버튼 비활성화
+        const optionButtons = document.querySelectorAll('.option-button');
+        optionButtons.forEach(btn => btn.disabled = true);
+
+        const currentProblem = problems[currentProblemIndex];
+        const correctOption = currentProblem.correctOption;
+
+        if (selectedOption === correctOption) {
+            score += scoreIncrement;
+            feedbackElement.textContent = '정답입니다!';
+            feedbackElement.style.color = 'green';
+        } else {
+            feedbackElement.textContent = `오답입니다. 정답은 ${correctOption}입니다.`;
+            feedbackElement.style.color = 'red';
+            remainingChances--;
+            remainingChancesElement.textContent = remainingChances;
+        }
+
+        updateScore();
+
+        // "다음 문제" 버튼 생성 (정답/오답이 발생해야 작동)
+        const nextButton = document.createElement('button');
+        nextButton.className = 'button';
+        nextButton.textContent = '다음 문제';
+        nextButton.onclick = () => {
+            currentProblemIndex++;
+            if (remainingChances > 0) {
+                nextProblem();
+            } else {
+                endGame();
+            }
+        };
+        document.getElementById('next-container').appendChild(nextButton);
+    }
+
+    function endGame() {
+        clearInterval(timerInterval);
+        showScreen(resultScreen);
+        finalScoreElement.textContent = score;
+        finalTimeElement.textContent = totalTimeElapsed;
+    }
+
+    function restartGame() {
+        showScreen(difficultySelection);
+    }
+
+    // "점수전송" 버튼 클릭 시 데이터 전송
+    function sendScore() {
+        saveData("합이 큰 수", playerName, score, totalTimeElapsed);
+    }
+
+    // 게임 시작 시 난이도 선택 화면 표시
+    showScreen(difficultySelection);
+</script>
+
+</body>
+</html>
